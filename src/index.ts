@@ -1,47 +1,12 @@
-import { greetUser } from '$utils/greet';
-import { cloneNode } from '@finsweet/ts-utils';
+import { cloneNode, isNotEmpty } from '@finsweet/ts-utils';
 
-const pokemonsData = [
-  {
-    id: 1,
-    name: 'Ditto',
-    sprites: {
-      other: {
-        dream_world: {
-          front_default:
-            'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/dream-world/132.svg',
-        },
-      },
-    },
-  },
-  {
-    id: 1,
-    name: 'Pikachu',
-    sprites: {
-      other: {
-        dream_world: {
-          front_default:
-            'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/dream-world/132.svg',
-        },
-      },
-    },
-  },
-  {
-    id: 1,
-    name: 'Bulbasaur',
-    sprites: {
-      other: {
-        dream_world: {
-          front_default:
-            'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/dream-world/132.svg',
-        },
-      },
-    },
-  },
-];
+import type { PokemonData, PokemonsResponse } from './types';
 
 window.Webflow ||= [];
-window.Webflow.push(() => {
+window.Webflow.push(async () => {
+  const pokemonsData = await fetchPokemonsData(5, 0);
+  console.log(pokemonsData);
+
   const itemTemplate = document.querySelector<HTMLAnchorElement>('[data-element="pokemon-item"]');
   if (!itemTemplate) return;
 
@@ -57,7 +22,7 @@ window.Webflow.push(() => {
     const nameElement = item.querySelector<HTMLDivElement>('[data-element="pokemon-name"]');
 
     if (imageElement) {
-      imageElement.src = sprites.other.dream_world.front_default;
+      imageElement.src = sprites.other?.dream_world.front_default || sprites.front_default;
     }
 
     if (idElement) {
@@ -75,3 +40,35 @@ window.Webflow.push(() => {
 
   itemsList.append(...pokemonItems);
 });
+
+const fetchPokemonsData = async (limit: number, offset: number): Promise<PokemonData[]> => {
+  try {
+    const url = new URL('https://pokeapi.co/api/v2/pokemon');
+
+    url.searchParams.append('limit', limit.toString());
+    url.searchParams.append('offset', offset.toString());
+
+    const response = await fetch(url);
+
+    const data: PokemonsResponse = await response.json();
+
+    const pokemonsData = (
+      await Promise.all(
+        data.results.map(async ({ url }) => {
+          try {
+            const response = await fetch(url);
+            const data: PokemonData = await response.json();
+
+            return data;
+          } catch (err) {
+            return null;
+          }
+        })
+      )
+    ).filter(isNotEmpty);
+
+    return pokemonsData;
+  } catch (err) {
+    return [];
+  }
+};
